@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "5766703152",
+    "firebase_url": "https://authentication-app-39b1a-default-rtdb.firebaseio.com",
+    "project_id": "authentication-app-39b1a",
+    "storage_bucket": "authentication-app-39b1a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:5766703152:android:94b556f0830c0a9e5b25f5",
+        "android_client_info": {
+          "package_name": "com.example.flutter_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5soSZMid25wENt2rmoKCWGqWBRfqmLM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:5766703152:android:52e37124d65429205b25f5",
+        "android_client_info": {
+          "package_name": "com.example.gg_classroom"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5soSZMid25wENt2rmoKCWGqWBRfqmLM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
