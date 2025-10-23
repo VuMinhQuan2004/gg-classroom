@@ -11,7 +11,7 @@ class SignUp extends StatefulWidget {
 }
 
 class _SignUpState extends State<SignUp> {
-  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController fullnameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmController = TextEditingController();
@@ -20,23 +20,29 @@ class _SignUpState extends State<SignUp> {
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref("users");
 
   bool isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
+  String message = ""; // Thông báo lỗi hoặc thành công
 
   Future<void> _signUp() async {
-    String username = usernameController.text.trim();
+    String fullname = fullnameController.text.trim();
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
     String confirm = confirmController.text.trim();
 
-    if (username.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      _showMessage("Vui lòng nhập đầy đủ thông tin!");
+    if (fullname.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
+      setState(() => message = "Vui lòng nhập đầy đủ thông tin!");
       return;
     }
     if (password != confirm) {
-      _showMessage("Mật khẩu không khớp!");
+      setState(() => message = "Mật khẩu không khớp!");
       return;
     }
 
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      message = "";
+    });
 
     try {
       // Tạo tài khoản Firebase Auth
@@ -45,30 +51,37 @@ class _SignUpState extends State<SignUp> {
         password: password,
       );
 
-      String uid = userCredential.user!.uid;
+      User? user = userCredential.user;
+      String uid = user!.uid;
 
       // Lưu thông tin vào Realtime Database
       await _dbRef.child(uid).set({
-        "username": username,
+        "uid": uid,
+        "loginMethod": "email",
+        "name": fullname,
         "email": email,
+        "photoURL": "",
+        "createdAt": DateTime.now().toIso8601String(),
       });
 
-      _showMessage("Đăng ký thành công!");
+      setState(() => message = "Đăng ký thành công!");
+
+      // Chuyển sang SignIn sau 1 giây
+      Future.delayed(const Duration(seconds: 1), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const SignIn()),
+        );
+      });
     } on FirebaseAuthException catch (e) {
       String msg = "Lỗi không xác định!";
       if (e.code == 'email-already-in-use') msg = "Email này đã được sử dụng!";
       if (e.code == 'weak-password') msg = "Mật khẩu quá yếu!";
       if (e.code == 'invalid-email') msg = "Email không hợp lệ!";
-      _showMessage(msg);
+      setState(() => message = msg);
     } finally {
       setState(() => isLoading = false);
     }
-  }
-
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
   }
 
   @override
@@ -88,74 +101,125 @@ class _SignUpState extends State<SignUp> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Create Account!",
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 30.0,
-                          fontWeight: FontWeight.bold)),
-                  Text("Start your study today!",
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 18.0,
-                          fontWeight: FontWeight.w500)),
+                  const Text(
+                    "Create Account!",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 30.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Text(
+                    "Start your study today!",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   SizedBox(height: MediaQuery.of(context).size.height / 8),
 
-                  // Username
-                  _inputField(usernameController, "Enter your username..."),
-                  SizedBox(height: 20.0),
+                  // Fullname
+                  _inputField(
+                    controller: fullnameController,
+                    hint: "Enter your full name...",
+                    icon: Icons.person,
+                    isName: true,
+                  ),
+                  const SizedBox(height: 20.0),
 
                   // Email
-                  _inputField(emailController, "Enter your email..."),
-                  SizedBox(height: 20.0),
+                  _inputField(
+                    controller: emailController,
+                    hint: "Enter your email...",
+                    icon: Icons.email,
+                  ),
+                  const SizedBox(height: 20.0),
 
                   // Password
-                  _inputField(passwordController, "Enter your password...",
-                      obscure: true),
-                  SizedBox(height: 20.0),
+                  _inputField(
+                    controller: passwordController,
+                    hint: "Enter your password...",
+                    icon: Icons.lock,
+                    obscure: true,
+                    isPassword: true,
+                  ),
+                  const SizedBox(height: 20.0),
 
                   // Confirm Password
-                  _inputField(confirmController, "Confirm password",
-                      obscure: true),
-                  SizedBox(height: 20.0),
+                  _inputField(
+                    controller: confirmController,
+                    hint: "Confirm password",
+                    icon: Icons.lock_outline,
+                    obscure: true,
+                    isPassword: true,
+                    isConfirm: true,
+                  ),
+                  const SizedBox(height: 20.0),
+
+                  // =========================
+                  // Message UI
+                  // =========================
+                  if (message.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: message.contains("thành công") ? Colors.green[200] : Colors.red[200],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            message.contains("thành công") ? Icons.check_circle : Icons.error,
+                            color: message.contains("thành công") ? Colors.green : Colors.red,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 20),
 
                   // Sign Up Button
                   GestureDetector(
                     onTap: isLoading ? null : _signUp,
                     child: Container(
                       height: 50,
-                      margin: EdgeInsets.only(right: 30.0),
+                      margin: const EdgeInsets.only(right: 30.0),
                       width: MediaQuery.of(context).size.width,
                       decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(30)),
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                       child: Center(
                         child: isLoading
-                            ? CircularProgressIndicator(color: Colors.white)
-                            : Text("Sign Up",
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                "Sign Up",
                                 style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22.0,
-                                    fontWeight: FontWeight.bold)),
+                                  color: Colors.white,
+                                  fontSize: 22.0,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ),
-                  SizedBox(height: 30.0),
+                  const SizedBox(height: 30.0),
 
-                  // Social login icons
-                  // Row(
-                  //   mainAxisAlignment: MainAxisAlignment.center,
-                  //   children: [
-                  //     Image.asset("images/google.png",
-                  //         height: 50, width: 50, fit: BoxFit.cover),
-                  //     SizedBox(width: 50.0),
-                  //     Image.asset("images/fb.png",
-                  //         height: 50, width: 50, fit: BoxFit.cover),
-                  //   ],
-                  // ),
+                  // Sign in link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         "Already have an account? ",
                         style: TextStyle(fontSize: 16.0),
                       ),
@@ -163,10 +227,10 @@ class _SignUpState extends State<SignUp> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => SignIn()),
+                            MaterialPageRoute(builder: (context) => const SignIn()),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           "Sign in now",
                           style: TextStyle(
                             fontSize: 16.0,
@@ -180,25 +244,76 @@ class _SignUpState extends State<SignUp> {
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _inputField(TextEditingController controller, String hint,
-      {bool obscure = false}) {
+  Widget _inputField({
+    required TextEditingController controller,
+    required String hint,
+    IconData? icon,
+    bool obscure = false,
+    bool isName = false,
+    bool isPassword = false,
+    bool isConfirm = false,
+  }) {
     return Container(
-      padding: EdgeInsets.only(left: 15.0),
-      margin: EdgeInsets.only(right: 30.0),
+      margin: const EdgeInsets.only(right: 30.0),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromARGB(115, 0, 0, 0), width: 2.0),
+        border: Border.all(
+          color: const Color.fromARGB(115, 0, 0, 0),
+          width: 2.0,
+        ),
         borderRadius: BorderRadius.circular(30),
       ),
       child: TextField(
         controller: controller,
-        obscureText: obscure,
-        decoration: InputDecoration(border: InputBorder.none, hintText: hint),
+        obscureText: obscure
+            ? (isConfirm ? _obscureConfirm : _obscurePassword)
+            : false,
+        onEditingComplete: () {
+          if (isName) {
+            String value = controller.text;
+            String formatted = value
+                .trim()
+                .split(RegExp(r'\s+'))
+                .map((word) => word.isNotEmpty
+                    ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+                    : '')
+                .join(' ');
+            controller.value = controller.value.copyWith(
+              text: formatted,
+              selection: TextSelection.collapsed(offset: formatted.length),
+            );
+          }
+        },
+        decoration: InputDecoration(
+          prefixIcon: icon != null ? Icon(icon, color: Colors.green) : null,
+          hintText: hint,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 10.0),
+          suffixIcon: obscure
+              ? IconButton(
+                  icon: Icon(
+                    isConfirm
+                        ? (_obscureConfirm ? Icons.visibility_off : Icons.visibility)
+                        : (_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (isConfirm) {
+                        _obscureConfirm = !_obscureConfirm;
+                      } else {
+                        _obscurePassword = !_obscurePassword;
+                      }
+                    });
+                  },
+                )
+              : null,
+        ),
       ),
     );
   }

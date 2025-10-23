@@ -18,18 +18,26 @@ class _SignInState extends State<SignIn> {
   final passwordController = TextEditingController();
 
   bool isLoading = false;
+  bool _obscurePassword = true;
+  String message = ""; // Biến thông báo lỗi hoặc thành công
 
+  // =========================
+  // Đăng nhập Email/Password
+  // =========================
   Future<void> _signIn() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      message = "";
+    });
 
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Vui lòng nhập đầy đủ thông tin")),
-      );
-      setState(() => isLoading = false);
+      setState(() {
+        message = "Vui lòng nhập đầy đủ thông tin!";
+        isLoading = false;
+      });
       return;
     }
 
@@ -37,14 +45,20 @@ class _SignInState extends State<SignIn> {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email, password: password);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      // setState(() {
+      //   message = "Đăng nhập thành công!";
+      // });
+
+      // Chuyển màn hình sau 1 giây
+      Future.delayed(const Duration(seconds: 1), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      });
 
     } on FirebaseAuthException catch (e) {
       String errorMessage;
-
       switch (e.code) {
         case 'invalid-credential':
           errorMessage = 'Tài khoản hoặc mật khẩu sai.';
@@ -62,56 +76,42 @@ class _SignInState extends State<SignIn> {
           errorMessage = 'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.';
           break;
         default:
-          errorMessage = 'Đã xảy ra lỗi ${e.code}: ${e.message}';
+          errorMessage = '${e.message}';
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      setState(() => message = errorMessage);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Lỗi không xác định. Vui lòng thử lại.")),
-      );
+      setState(() => message = "Lỗi không xác định. Vui lòng thử lại.");
     } finally {
       setState(() => isLoading = false);
     }
-
   }
 
-  
-
+  // =========================
+  // Đăng nhập Google
+  // =========================
   Future<UserCredential?> loginWithGoogle() async {
     try {
-      
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-      );
+      final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
       await googleSignIn.signOut();
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
-        print("Người dùng đã hủy đăng nhập Google.");
+        setState(() => message = "Người dùng đã hủy đăng nhập Google.");
         return null;
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Đăng nhập Firebase
-      final userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user;
 
       if (user != null) {
-        // Ghi thông tin user vào Realtime Database
         final dbRef = FirebaseDatabase.instance.ref("users/${user.uid}");
-
         await dbRef.set({
           "uid": user.uid,
           "name": user.displayName ?? "No Name",
@@ -120,18 +120,15 @@ class _SignInState extends State<SignIn> {
           "loginMethod": "google",
           "createdAt": DateTime.now().toIso8601String(),
         });
-
-        print("✅ Đã lưu thông tin người dùng Google vào Database");
+        setState(() => message = "Đăng nhập Google thành công!");
       }
 
       return userCredential;
     } catch (e) {
-      print("❌ Lỗi đăng nhập Google: $e");
+      setState(() => message = "Lỗi đăng nhập Google: $e");
       return null;
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -152,52 +149,98 @@ class _SignInState extends State<SignIn> {
                 children: [
                   Text(
                     "Welcome Back 👋",
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.black,
                       fontSize: 32.0,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text(
                     "Continue your learning journey!",
-                    style: TextStyle(color: Colors.black, fontSize: 18.0, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height / 8),
 
+                  // =========================
                   // Email
-                  _inputField(emailController, "Enter your email..."),
-                  SizedBox(height: 20.0),
+                  // =========================
+                  _inputField(emailController, "Enter your email...", icon: Icons.email),
+                  const SizedBox(height: 20.0),
 
+                  // =========================
                   // Password
-                  _inputField(passwordController, "Enter your password...",
-                      obscure: true),
-                  SizedBox(height: 10.0),
+                  // =========================
+                  _inputField(
+                    passwordController,
+                    "Enter your password...",
+                    icon: Icons.lock,
+                    obscure: true,
+                  ),
+                  const SizedBox(height: 10.0),
 
-                  // Forgot Password link
+                  // =========================
+                  // Forgot Password
+                  // =========================
                   Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
                       onTap: () {
                         Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => ForgetPasswordScreen()),
-                          );
+                          context,
+                          MaterialPageRoute(builder: (context) => ForgetPasswordScreen()),
+                        );
                       },
-                      child: Text(
+                      child: const Text(
                         "Forgot Password?",
                         style: TextStyle(
                           color: Colors.green,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          //decoration: TextDecoration.underline,
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(height: 10.0),
+                  const SizedBox(height: 10.0),
 
+                  // =========================
+                  // Message hiển thị trực tiếp trên UI
+                  // =========================
+                  if (message.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: message.contains("thành công") ? Colors.green[200] : Colors.red[200],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            message.contains("thành công") ? Icons.check_circle : Icons.error,
+                            color: message.contains("thành công") ? Colors.green : Colors.red,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+
+                  // =========================
                   // Sign In Button
+                  // =========================
                   GestureDetector(
                     onTap: isLoading ? null : _signIn,
                     child: Container(
@@ -209,8 +252,8 @@ class _SignInState extends State<SignIn> {
                       ),
                       child: Center(
                         child: isLoading
-                            ? CircularProgressIndicator(color: Colors.white)
-                            : Text(
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
                                 "Sign In",
                                 style: TextStyle(
                                   color: Colors.white,
@@ -221,14 +264,15 @@ class _SignInState extends State<SignIn> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 20.0),
+                  const SizedBox(height: 20),
 
+                  // =========================
                   // Create Account link
+                  // =========================
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Don’t have an account? ",
-                          style: TextStyle(fontSize: 13.0)),
+                      const Text("Don’t have an account? ", style: TextStyle(fontSize: 13.0)),
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
@@ -236,7 +280,7 @@ class _SignInState extends State<SignIn> {
                             MaterialPageRoute(builder: (context) => SignUp()),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           "Create Account",
                           style: TextStyle(
                             fontSize: 13.0,
@@ -245,50 +289,61 @@ class _SignInState extends State<SignIn> {
                           ),
                         ),
                       ),
-
                     ],
                   ),
-                  SizedBox(height: 30.0),
+                  const SizedBox(height: 30.0),
 
-                  // Social login icons
-                  Row(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: [
-    // Nút Google
-    GestureDetector(
-      onTap: () async {
-        try {
-          await loginWithGoogle();
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Lỗi đăng nhập Google: $e")),
-          );
-        }
-      },
-      child: Image.asset(
-        "images/google.png",
-        height: 50,
-        width: 50,
-        fit: BoxFit.cover,
-      ),
-    ),
-
-    const SizedBox(width: 50.0),
-
-    // Nút Facebook
-    Image.asset(
-      "images/fb.png",
-      height: 50,
-      width: 50,
-      fit: BoxFit.cover,
-    ),
-  ],
-)
-
+                  // =========================
+                  // Social login Google (button)
+                  // =========================
+                  Center(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await loginWithGoogle();
+                        if (message.contains("thành công")) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const HomeScreen()),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.green, width: 1.5),
+                          borderRadius: BorderRadius.circular(30),
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              "images/google.png",
+                              height: 40,
+                              width: 40,
+                              fit: BoxFit.cover,
+                            ),
+                            const SizedBox(width: 10),
+                            const Text(
+                              "Đăng nhập bằng Google",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -298,20 +353,38 @@ class _SignInState extends State<SignIn> {
     );
   }
 
+  // =========================
+  // Input field có icon + mật khẩu show/hide
+  // =========================
   Widget _inputField(TextEditingController controller, String hint,
-      {bool obscure = false}) {
+      {bool obscure = false, IconData? icon}) {
     return Container(
-      padding: EdgeInsets.only(left: 15.0),
+      padding: const EdgeInsets.only(left: 15.0),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black54, width: 1.5),
         borderRadius: BorderRadius.circular(30),
       ),
       child: TextField(
         controller: controller,
-        obscureText: obscure,
+        obscureText: obscure ? _obscurePassword : false,
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: hint,
+          prefixIcon: icon != null ? Icon(icon, color: Colors.green) : null,
+          suffixIcon: obscure
+              ? IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 10.0),
         ),
       ),
     );
