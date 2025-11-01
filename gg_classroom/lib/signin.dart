@@ -19,11 +19,8 @@ class _SignInState extends State<SignIn> {
 
   bool isLoading = false;
   bool _obscurePassword = true;
-  String message = ""; // Biến thông báo lỗi hoặc thành công
+  String message = "";
 
-  // =========================
-  // Đăng nhập Email/Password
-  // =========================
   Future<void> _signIn() async {
     setState(() {
       isLoading = true;
@@ -35,7 +32,7 @@ class _SignInState extends State<SignIn> {
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
-        message = "Vui lòng nhập đầy đủ thông tin!";
+        message = "Please enter both email and password.";
         isLoading = false;
       });
       return;
@@ -43,89 +40,80 @@ class _SignInState extends State<SignIn> {
 
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email, password: password);
+        email: email,
+        password: password,
+      );
 
-      // setState(() {
-      //   message = "Đăng nhập thành công!";
-      // });
-
-      // Chuyển màn hình sau 1 giây
-      Future.delayed(const Duration(seconds: 1), () {
+      Future.delayed(const Duration(milliseconds: 400), () {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       });
-
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
         case 'invalid-credential':
-          errorMessage = 'Tài khoản hoặc mật khẩu sai.';
+        case 'user-not-found':
+        case 'wrong-password':
+          errorMessage = 'Incorrect email or password.';
           break;
         case 'user-disabled':
-          errorMessage = 'Tài khoản này đã bị vô hiệu hóa.';
-          break;
-        case 'user-not-found':
-          errorMessage = 'Không tìm thấy tài khoản với email này.';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Mật khẩu không chính xác. Vui lòng thử lại.';
+          errorMessage = 'This account has been disabled.';
           break;
         case 'too-many-requests':
-          errorMessage = 'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.';
+          errorMessage = 'Too many attempts. Please try again later.';
           break;
         default:
-          errorMessage = '${e.message}';
+          errorMessage = 'Login failed. Please try again.';
       }
       setState(() => message = errorMessage);
-    } catch (e) {
-      setState(() => message = "Lỗi không xác định. Vui lòng thử lại.");
     } finally {
       setState(() => isLoading = false);
     }
   }
 
-  // =========================
-  // Đăng nhập Google
-  // =========================
   Future<UserCredential?> loginWithGoogle() async {
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
-      await googleSignIn.signOut();
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-
+      final google = GoogleSignIn(scopes: ['email', 'profile']);
+      await google.signOut();
+      final googleUser = await google.signIn();
       if (googleUser == null) {
-        setState(() => message = "Người dùng đã hủy đăng nhập Google.");
+        setState(() => message = "Google login cancelled.");
         return null;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
+      final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user;
 
       if (user != null) {
-        final dbRef = FirebaseDatabase.instance.ref("users/${user.uid}");
+        final dbRef =
+            FirebaseDatabase.instance.ref("users/${user.uid}");
         await dbRef.set({
           "uid": user.uid,
           "name": user.displayName ?? "No Name",
-          "email": user.email ?? "No Email",
+          "email": user.email ?? "",
           "photoUrl": user.photoURL ?? "",
           "loginMethod": "google",
           "createdAt": DateTime.now().toIso8601String(),
         });
-        setState(() => message = "Đăng nhập Google thành công!");
-      }
 
+        setState(() => message = "Login successful!");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
       return userCredential;
     } catch (e) {
-      setState(() => message = "Lỗi đăng nhập Google: $e");
+      setState(() => message = "Google login failed.");
       return null;
     }
   }
@@ -137,214 +125,204 @@ class _SignInState extends State<SignIn> {
         children: [
           Image.asset(
             "images/bg.png",
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            fit: BoxFit.fill,
+            height: double.infinity,
+            width: double.infinity,
+            fit: BoxFit.cover,
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 80.0, left: 30.0, right: 30.0),
+
+          Center(
             child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Welcome Back 👋",
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 32.0,
-                      fontWeight: FontWeight.bold,
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(.12),
+                      blurRadius: 18,
+                      spreadRadius: 3,
+                      offset: const Offset(0, 6),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "Continue your learning journey!",
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 18.0,
-                      fontWeight: FontWeight.bold,
+                  ],
+                ),
+
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Welcome Back 👋",
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height / 8),
 
-                  // =========================
-                  // Email
-                  // =========================
-                  _inputField(emailController, "Enter your email...", icon: Icons.email),
-                  const SizedBox(height: 20.0),
+                    const SizedBox(height: 6),
 
-                  // =========================
-                  // Password
-                  // =========================
-                  _inputField(
-                    passwordController,
-                    "Enter your password...",
-                    icon: Icons.lock,
-                    obscure: true,
-                  ),
-                  const SizedBox(height: 10.0),
+                    Text(
+                      "Continue your learning journey!",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black.withOpacity(.8),
+                      ),
+                    ),
 
-                  // =========================
-                  // Forgot Password
-                  // =========================
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
+                    const SizedBox(height: 30),
+
+                    _inputField(
+                      controller: emailController,
+                      hint: "Email address",
+                      icon: Icons.email,
+                    ),
+                    const SizedBox(height: 16),
+
+                    _inputField(
+                      controller: passwordController,
+                      hint: "Password",
+                      icon: Icons.lock,
+                      obscure: true,
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => ForgetPasswordScreen()),
-                        );
-                      },
-                      child: const Text(
-                        "Forgot Password?",
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          MaterialPageRoute(builder: (_) => ForgetPasswordScreen()),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10.0),
-
-                  // =========================
-                  // Message hiển thị trực tiếp trên UI
-                  // =========================
-                  if (message.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: message.contains("thành công") ? Colors.green[200] : Colors.red[200],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            message.contains("thành công") ? Icons.check_circle : Icons.error,
-                            color: message.contains("thành công") ? Colors.green : Colors.red,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              message,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-
-                  // =========================
-                  // Sign In Button
-                  // =========================
-                  GestureDetector(
-                    onTap: isLoading ? null : _signIn,
-                    child: Container(
-                      height: 50,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Center(
-                        child: isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                                "Sign In",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // =========================
-                  // Create Account link
-                  // =========================
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Don’t have an account? ", style: TextStyle(fontSize: 13.0)),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => SignUp()),
-                          );
-                        },
                         child: const Text(
-                          "Create Account",
+                          "Forgot Password?",
                           style: TextStyle(
-                            fontSize: 13.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
+                              color: Color(0xFF2F855A),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 30.0),
+                    ),
 
-                  // =========================
-                  // Social login Google (button)
-                  // =========================
-                  Center(
-                    child: GestureDetector(
-                      onTap: () async {
-                        await loginWithGoogle();
-                        if (message.contains("thành công")) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const HomeScreen()),
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                    const SizedBox(height: 12),
+
+                    if (message.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.green, width: 1.5),
-                          borderRadius: BorderRadius.circular(30),
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
+                          borderRadius: BorderRadius.circular(12),
+                          color: message.contains("success")
+                              ? Colors.green.shade100
+                              : Colors.red.shade100,
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Image.asset(
-                              "images/google.png",
-                              height: 40,
-                              width: 40,
-                              fit: BoxFit.cover,
+                            Icon(
+                              message.contains("success")
+                                  ? Icons.check_circle
+                                  : Icons.error,
+                              color: message.contains("success")
+                                  ? Colors.green
+                                  : Colors.red,
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                message,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 18),
+
+                    GestureDetector(
+                      onTap: isLoading ? null : _signIn,
+                      child: Container(
+                        height: 54,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF8BC34A), Color.fromARGB(255, 40, 170, 84)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: isLoading
+                              ? const CircularProgressIndicator(
+                                  strokeWidth: 3, color: Colors.white)
+                              : const Text(
+                                  "Sign In",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text("Don't have an account? "),
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SignUp()),
+                          ),
+                          child: const Text(
+                            "Create Account",
+                            style: TextStyle(
+                              color: Color(0xFF2F855A),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    GestureDetector(
+                      onTap: loginWithGoogle,
+                      child: Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.black12),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset("images/google.png", height: 28),
                             const SizedBox(width: 10),
                             const Text(
-                              "Đăng nhập bằng Google",
+                              "Continue with Google",
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600),
+                            )
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -353,38 +331,37 @@ class _SignInState extends State<SignIn> {
     );
   }
 
-  // =========================
-  // Input field có icon + mật khẩu show/hide
-  // =========================
-  Widget _inputField(TextEditingController controller, String hint,
-      {bool obscure = false, IconData? icon}) {
+  Widget _inputField({
+    required TextEditingController controller,
+    required String hint,
+    IconData? icon,
+    bool obscure = false,
+  }) {
     return Container(
-      padding: const EdgeInsets.only(left: 15.0),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black54, width: 1.5),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black26),
       ),
       child: TextField(
         controller: controller,
         obscureText: obscure ? _obscurePassword : false,
         decoration: InputDecoration(
-          border: InputBorder.none,
+          prefixIcon: Icon(icon, color: Color(0xFF2F855A)),
           hintText: hint,
-          prefixIcon: icon != null ? Icon(icon, color: Colors.green) : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
           suffixIcon: obscure
               ? IconButton(
                   icon: Icon(
-                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    _obscurePassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: Colors.grey,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 )
               : null,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 10.0),
         ),
       ),
     );

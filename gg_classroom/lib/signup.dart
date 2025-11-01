@@ -22,7 +22,7 @@ class _SignUpState extends State<SignUp> {
   bool isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
-  String message = ""; // Thông báo lỗi hoặc thành công
+  String message = "";
 
   Future<void> _signUp() async {
     String fullname = fullnameController.text.trim();
@@ -31,11 +31,11 @@ class _SignUpState extends State<SignUp> {
     String confirm = confirmController.text.trim();
 
     if (fullname.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      setState(() => message = "Vui lòng nhập đầy đủ thông tin!");
+      setState(() => message = "Please fill in all fields!");
       return;
     }
     if (password != confirm) {
-      setState(() => message = "Mật khẩu không khớp!");
+      setState(() => message = "Passwords do not match!");
       return;
     }
 
@@ -45,16 +45,12 @@ class _SignUpState extends State<SignUp> {
     });
 
     try {
-      // Tạo tài khoản Firebase Auth
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(email: email, password: password);
 
       User? user = userCredential.user;
       String uid = user!.uid;
 
-      // Lưu thông tin vào Realtime Database
       await _dbRef.child(uid).set({
         "uid": uid,
         "loginMethod": "email",
@@ -64,20 +60,19 @@ class _SignUpState extends State<SignUp> {
         "createdAt": DateTime.now().toIso8601String(),
       });
 
-      setState(() => message = "Đăng ký thành công!");
+      setState(() => message = "Account created successfully!");
 
-      // Chuyển sang SignIn sau 1 giây
       Future.delayed(const Duration(seconds: 1), () {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const SignIn()),
+          MaterialPageRoute(builder: (_) => const SignIn()),
         );
       });
     } on FirebaseAuthException catch (e) {
-      String msg = "Lỗi không xác định!";
-      if (e.code == 'email-already-in-use') msg = "Email này đã được sử dụng!";
-      if (e.code == 'weak-password') msg = "Mật khẩu quá yếu!";
-      if (e.code == 'invalid-email') msg = "Email không hợp lệ!";
+      String msg = "Unknown error!";
+      if (e.code == 'email-already-in-use') msg = "Email already in use!";
+      if (e.code == 'weak-password') msg = "Weak password!";
+      if (e.code == 'invalid-email') msg = "Invalid email format!";
       setState(() => message = msg);
     } finally {
       setState(() => isLoading = false);
@@ -89,159 +84,107 @@ class _SignUpState extends State<SignUp> {
     return Scaffold(
       body: Stack(
         children: [
-          Image.asset(
-            "images/bg.png",
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            fit: BoxFit.fill,
+          Positioned.fill(
+            child: Image.asset(
+              "images/bg.png", 
+              fit: BoxFit.cover,
+            ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 60.0, left: 30.0),
+
+          // ✅ Form trên nền mờ
+          Center(
             child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Create Account!",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 30.0,
-                      fontWeight: FontWeight.bold,
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Container(
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Create Account",
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const Text(
-                    "Start your study today!",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18.0,
-                      fontWeight: FontWeight.w500,
+                    const Text(
+                      "Start your study journey!",
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height / 8),
+                    const SizedBox(height: 25),
 
-                  // Fullname
-                  _inputField(
-                    controller: fullnameController,
-                    hint: "Enter your full name...",
-                    icon: Icons.person,
-                    isName: true,
-                  ),
-                  const SizedBox(height: 20.0),
+                    _inputField(controller: fullnameController, hint: "Full Name", icon: Icons.person, isName: true),
+                    const SizedBox(height: 15),
+                    _inputField(controller: emailController, hint: "Email", icon: Icons.email_rounded),
+                    const SizedBox(height: 15),
+                    _inputField(controller: passwordController, hint: "Password", icon: Icons.lock, obscure: true, isPassword: true),
+                    const SizedBox(height: 15),
+                    _inputField(controller: confirmController, hint: "Confirm Password", icon: Icons.lock_outline, obscure: true, isConfirm: true),
+                    const SizedBox(height: 20),
 
-                  // Email
-                  _inputField(
-                    controller: emailController,
-                    hint: "Enter your email...",
-                    icon: Icons.email,
-                  ),
-                  const SizedBox(height: 20.0),
-
-                  // Password
-                  _inputField(
-                    controller: passwordController,
-                    hint: "Enter your password...",
-                    icon: Icons.lock,
-                    obscure: true,
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 20.0),
-
-                  // Confirm Password
-                  _inputField(
-                    controller: confirmController,
-                    hint: "Confirm password",
-                    icon: Icons.lock_outline,
-                    obscure: true,
-                    isPassword: true,
-                    isConfirm: true,
-                  ),
-                  const SizedBox(height: 20.0),
-
-                  // =========================
-                  // Message UI
-                  // =========================
-                  if (message.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: message.contains("thành công") ? Colors.green[200] : Colors.red[200],
-                        borderRadius: BorderRadius.circular(10),
+                    if (message.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: message.contains("success") ? Colors.green[200] : Colors.red[200],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          message,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            message.contains("thành công") ? Icons.check_circle : Icons.error,
-                            color: message.contains("thành công") ? Colors.green : Colors.red,
+
+                    const SizedBox(height: 20),
+
+                    GestureDetector(
+                      onTap: isLoading ? null : _signUp,
+                      child: Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF8BC34A), Color.fromARGB(255, 40, 170, 84)],
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              message,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-
-                  // Sign Up Button
-                  GestureDetector(
-                    onTap: isLoading ? null : _signUp,
-                    child: Container(
-                      height: 50,
-                      margin: const EdgeInsets.only(right: 30.0),
-                      width: MediaQuery.of(context).size.width,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Center(
-                        child: isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                                "Sign Up",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22.0,
-                                  fontWeight: FontWeight.bold,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Center(
+                          child: isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text(
+                                  "Sign Up",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold),
                                 ),
-                              ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 30.0),
+                    const SizedBox(height: 15),
 
-                  // Sign in link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Already have an account? ",
-                        style: TextStyle(fontSize: 16.0),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const SignIn()),
-                          );
-                        },
+                    Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignIn())),
                         child: const Text(
-                          "Sign in now",
+                          "Already have an account? Sign in",
                           style: TextStyle(
-                            fontSize: 16.0,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: Colors.green,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    )
+                  ],
+                ),
               ),
             ),
           ),
@@ -259,61 +202,34 @@ class _SignUpState extends State<SignUp> {
     bool isPassword = false,
     bool isConfirm = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(right: 30.0),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: const Color.fromARGB(115, 0, 0, 0),
-          width: 2.0,
-        ),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure
-            ? (isConfirm ? _obscureConfirm : _obscurePassword)
-            : false,
-        onEditingComplete: () {
-          if (isName) {
-            String value = controller.text;
-            String formatted = value
-                .trim()
-                .split(RegExp(r'\s+'))
-                .map((word) => word.isNotEmpty
-                    ? word[0].toUpperCase() + word.substring(1).toLowerCase()
-                    : '')
-                .join(' ');
-            controller.value = controller.value.copyWith(
-              text: formatted,
-              selection: TextSelection.collapsed(offset: formatted.length),
-            );
-          }
-        },
-        decoration: InputDecoration(
-          prefixIcon: icon != null ? Icon(icon, color: Colors.green) : null,
-          hintText: hint,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 10.0),
-          suffixIcon: obscure
-              ? IconButton(
-                  icon: Icon(
-                    isConfirm
-                        ? (_obscureConfirm ? Icons.visibility_off : Icons.visibility)
-                        : (_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                    color: Colors.grey,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      if (isConfirm) {
-                        _obscureConfirm = !_obscureConfirm;
-                      } else {
-                        _obscurePassword = !_obscurePassword;
-                      }
-                    });
-                  },
-                )
-              : null,
-        ),
+    return TextField(
+      controller: controller,
+      obscureText: obscure ? (isConfirm ? _obscureConfirm : _obscurePassword) : false,
+      decoration: InputDecoration(
+        prefixIcon: icon != null ? Icon(icon, color: Colors.green) : null,
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        suffixIcon: obscure
+            ? IconButton(
+                icon: Icon(
+                  isConfirm
+                      ? (_obscureConfirm ? Icons.visibility_off : Icons.visibility)
+                      : (_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                  color: Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() {
+                    if (isConfirm) {
+                      _obscureConfirm = !_obscureConfirm;
+                    } else {
+                      _obscurePassword = !_obscurePassword;
+                    }
+                  });
+                },
+              )
+            : null,
       ),
     );
   }

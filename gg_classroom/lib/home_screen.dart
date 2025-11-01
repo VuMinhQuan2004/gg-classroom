@@ -120,23 +120,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.class_, color: Color(0xFF4285F4)),
-            title: const Text('Lớp học'),
+            title: const Text('Your class'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
             leading:
                 const Icon(Icons.calendar_today, color: Color(0xFF4285F4)),
-            title: const Text('Lịch'),
+            title: const Text('Calendar'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
             leading: const Icon(Icons.assignment, color: Color(0xFF4285F4)),
-            title: const Text('Bài tập'),
+            title: const Text('Homework'),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
             leading: const Icon(Icons.exit_to_app, color: Color(0xFF4285F4)),
-            title: const Text('Đăng xuất'),
+            title: const Text('Log out'),
             onTap: _logout,
           ),
         ],
