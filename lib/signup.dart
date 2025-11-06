@@ -4,8 +4,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:gg_classroom/signin.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 
 class SignUp extends StatefulWidget {
 const SignUp({super.key});
