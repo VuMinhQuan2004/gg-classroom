@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "522H0172@student.tdtu.edu.vn", // gmail bạn dùng để gửi
-    pass: "app_password_16_ký_tự",        // app password bạn tạo
+    pass: "rjdt dzys ywnn udvv",        // app password bạn tạo
   },
 });
 
