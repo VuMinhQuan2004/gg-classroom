@@ -1,6 +1,17 @@
 import nodemailer from "nodemailer";
 
 export default async function handler(req, res) {
+  // ✅ Cho phép request từ mọi nguồn (hoặc chỉ từ domain Flutter của bạn)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    // Trả về 200 cho preflight request
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
@@ -17,8 +28,8 @@ export default async function handler(req, res) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.GMAIL_USER, // Gmail để gửi
-        pass: process.env.GMAIL_PASS  // App password 16 ký tự
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS
       }
     });
 

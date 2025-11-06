@@ -68,9 +68,7 @@ try {
 
   // ✅ Gửi email xác nhận đăng ký thành công
   try {
-    final serverUrl = kIsWeb
-    ? "http://localhost:5000/send-mail" // Flutter Web / Windows
-    : "http://10.0.2.2:5000/send-mail"; // Android emulator
+    final serverUrl = "https://gg-classroom-test.vercel.app/api/send-mail";
 
     final response = await http.post(
       Uri.parse(serverUrl),
